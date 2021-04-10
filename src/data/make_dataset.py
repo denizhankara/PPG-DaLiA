@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import gc
 from category_encoders.cat_boost import CatBoostEncoder
-
+from glob import glob
+import os
 
 import tsfresh
 from tsfresh.utilities.dataframe_functions import roll_time_series
@@ -149,7 +150,7 @@ def encodeFields(signals):
 
     # Define train and target
     target = signals[['Label']]
-    signals = signals.drop('Lgabel', axis=1)
+    signals = signals.drop('Label', axis=1)
 
     # Define catboost encoder
     cbe_encoder = CatBoostEncoder(cols=cols)
@@ -164,22 +165,77 @@ def encodeFields(signals):
     return signals
 
 def rollWindows(signals):
+    """
+    Make distinct windows of 8 seconds, which are sliding
+
+    Since target labels are made by taking "mean" of the 8 second heartbeat windows,
+    the current sliding windows will provide more data and smoother transition to window changes
+
+    """
+
+    # First, add time as seconds in 4 Hz as ordering column
+
+    signals.reset_index(level=0, inplace=True)
+
+    #signals=signals.iloc[:1000]
+
+    signals = roll_time_series(signals, column_id="Subject", column_sort="index",max_timeshift=7,min_timeshift=7)
+
+    signals['window_ID'] = signals['id'].apply(lambda x1: x1[0] + "_" + str(x1[1]))
+
+    # Put the window ID to first place and remove excess id column
+    del signals['id']
+    del signals['Subject'] # we have subject embedded in window_ID now
+
+    # Reorder to get the window ID to first column
+    cols = list(signals.columns)
+    cols = [cols[-1]] + cols[:-1]
+    signals = signals[cols]
+
+    return signals
 
 
+def processData(subfolder,output_path):
 
-    pass
 
+    #patient_path = "../../data/raw/PPG_FieldStudy/S1/S1.pkl"
+    current_subject = os.path.split(subfolder)[-1]
 
-if __name__ == '__main__':
-
-    patient_path = "../../data/raw/PPG_FieldStudy/S1/S1.pkl"
+    patient_path = os.path.join(subfolder,current_subject+".pkl")
 
     signals = load_data(patient_path)
     signals = encodeFields(signals)
     signals = rollWindows(signals)
 
-    pass
+    # save processed data to appropriate path
+
+    dump_dir = os.path.join(output_path,current_subject+".csv")
+    signals.to_csv(dump_dir)
 
 
+    # Give prompt
+    print("Processing of " +current_subject + " is complete ! \n")
+
     pass
-    #processPatient(patient_path)
+
+def cli_main():
+
+
+    # Get all the patient data in raw folder
+    data_path = "../../data/raw/PPG_FieldStudy/"
+    subfolders = [f.path for f in os.scandir(data_path) if f.is_dir()]
+
+    # Make output path for saving the processed results
+    output_path = "../../data/processed/PPG_FieldStudy_Windowed/"
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    # Process each of the files and export to output path
+    for subfolder in subfolders:
+        processData(subfolder,output_path)
+
+
+
+if __name__ == '__main__':
+
+    cli_main()
