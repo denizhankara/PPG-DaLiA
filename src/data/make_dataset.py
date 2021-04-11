@@ -115,8 +115,6 @@ def load_data(path):
 
 
 def processChestData(data):
-
-
     signal = pd.DataFrame(data["signal"])
     ACC = pd.DataFrame(signal["chest"].ACC)
 
@@ -142,11 +140,10 @@ def processChestData(data):
     pass
 
 
-
 def encodeFields(signals):
     # encode the necessary fields with CategoryBooster's encoder, which prevents data leaks on windows
 
-    cols = ["Gender","SKIN","SPORT","Activity"]
+    cols = ["Gender", "SKIN", "SPORT", "Activity"]
 
     # Define train and target
     target = signals[['Label']]
@@ -159,10 +156,10 @@ def encodeFields(signals):
     cbe_encoder.fit(signals, target)
     signals = cbe_encoder.transform(signals)
 
-
     signals['Label'] = target
     gc.collect()
     return signals
+
 
 def rollWindows(signals):
     """
@@ -177,17 +174,17 @@ def rollWindows(signals):
 
     signals.reset_index(level=0, inplace=True)
 
-    #signals=signals.iloc[:1000]
+    # signals=signals.iloc[:1000]
 
-    signals = roll_time_series(signals, column_id="Subject", column_sort="index",max_timeshift=7,min_timeshift=7)
+    signals = roll_time_series(signals, column_id="Subject", column_sort="index", max_timeshift=7, min_timeshift=7)
 
     signals['window_ID'] = signals['id'].apply(lambda x1: x1[0] + "_" + str(x1[1]))
 
     # Put the window ID to first place and remove excess id column
     del signals['id']
-    del signals['Subject'] # we have subject embedded in window_ID now
+    del signals['Subject']  #  we have subject embedded in window_ID now
 
-    # Reorder to get the window ID to first column
+    #  Reorder to get the window ID to first column
     cols = list(signals.columns)
     cols = [cols[-1]] + cols[:-1]
     signals = signals[cols]
@@ -195,13 +192,11 @@ def rollWindows(signals):
     return signals
 
 
-def processData(subfolder,output_path):
-
-
-    #patient_path = "../../data/raw/PPG_FieldStudy/S1/S1.pkl"
+def processData(subfolder, output_path):
+    # patient_path = "../../data/raw/PPG_FieldStudy/S1/S1.pkl"
     current_subject = os.path.split(subfolder)[-1]
 
-    patient_path = os.path.join(subfolder,current_subject+".pkl")
+    patient_path = os.path.join(subfolder, current_subject + ".pkl")
 
     signals = load_data(patient_path)
     signals = encodeFields(signals)
@@ -209,33 +204,30 @@ def processData(subfolder,output_path):
 
     # save processed data to appropriate path
 
-    dump_dir = os.path.join(output_path,current_subject+".csv")
-    signals.to_csv(dump_dir)
-
+    dump_dir = os.path.join(output_path, current_subject + ".csv")
+    signals.to_csv(dump_dir,index=False)
 
     # Give prompt
-    print("Processing of " +current_subject + " is complete ! \n")
+    print("Processing of " + current_subject + " is complete ! \n")
 
     pass
 
+
 def cli_main():
-
-
     # Get all the patient data in raw folder
     data_path = "../../data/raw/PPG_FieldStudy/"
     subfolders = [f.path for f in os.scandir(data_path) if f.is_dir()]
 
-    # Make output path for saving the processed results
-    output_path = "../../data/processed/PPG_FieldStudy_Windowed/"
+    #  Make output path for saving the processed results
+    output_path = "../../data/interim/PPG_FieldStudy_Windowed/"
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
-    # Process each of the files and export to output path
+    #  Process each of the files and export to output path
     for subfolder in subfolders:
-        processData(subfolder,output_path)
-
+        processData(subfolder, output_path)
+        exit()
 
 
 if __name__ == '__main__':
-
     cli_main()
