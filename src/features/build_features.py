@@ -14,8 +14,10 @@ from glob import glob
 from itertools import product
 import os
 import multiprocessing.pool
-from functools import reduce
+from functools import reduce,partial
 import time
+
+from multiprocessing import Pool
 
 from tsfresh.utilities.dataframe_functions import impute
 from tsfresh import extract_features
@@ -95,7 +97,7 @@ current_considered_features = {"maximum": None,
 }
 
 
-def extractFeaturesAndSave(patient_data_path,col_name,output_path):
+def extractFeaturesAndSave(col_name,patient_data_path,output_path):
 
 
     # set the current considered feature extraction
@@ -108,7 +110,7 @@ def extractFeaturesAndSave(patient_data_path,col_name,output_path):
     time_col = "index"
 
     cols = [window_ID,time_col,col_name] # just use id,time and column to extract features
-    df = pd.read_csv(patient_data_path,usecols=cols)
+    df = pd.read_csv(patient_data_path,usecols=cols,nrows=1000) # nrows=1000
 
     for key in features_to_be_extracted.keys():
         feature_file_name = output_path + "/" +  col_name + "_" + key + ".csv"  # check if feature is already extracted
@@ -122,7 +124,7 @@ def extractFeaturesAndSave(patient_data_path,col_name,output_path):
 
         # without stacked dataframe
         extracted_features = extract_features(df, column_id=window_ID, column_sort=time_col,
-                                              default_fc_parameters=settings) # n_jobs=0
+                                              default_fc_parameters=settings,n_jobs=0) # n_jobs=0
         end = time.time()
         print("Extracting: " + feature_file_name + " took" + str(end - start) + " seconds")
 
@@ -142,6 +144,20 @@ def extractFeaturesAndSave(patient_data_path,col_name,output_path):
 
 
 
+class NoDaemonProcess(multiprocessing.Process):
+    """
+    Customize the multiprocessing class
+    """
+    # make 'daemon' attribute always return False
+    def _get_daemon(self):
+        return False
+    def _set_daemon(self, value):
+        pass
+    daemon = property(_get_daemon, _set_daemon)
+
+class MyPool(multiprocessing.pool.Pool):
+    """"""
+    Process = NoDaemonProcess
 
 def cli_main():
     # Get all the patient data, which was encoded and windowed in interim folder
@@ -168,16 +184,18 @@ def cli_main():
         # find columns
         col_list = pd.read_csv(patient_data_path, nrows=2).columns
         col_list = list(col_list)[2:]
+        if "Label" in col_list: col_list.remove("Label") # remove label from extraction
 
-        for col_name in col_list:
-            #col_name = "chest_ACC_x"
 
-            if "Label" in col_name:
-                # do not extract features from labels, as we will process them by taking their means later
-                continue
+        # Create the partial function with pool and start extraction in parallel
+        func = partial(extractFeaturesAndSave,patient_data_path=patient_data_path ,output_path= patient_output_path)
 
-            extractFeaturesAndSave(patient_data_path=patient_data_path,col_name=col_name,output_path= patient_output_path)
-            #exit()
+        pool = Pool() # MyPool()
+        pool.map(func, col_list)
+        pool.close()
+        pool.join()
+
+        #extractFeaturesAndSave(patient_data_path=patient_data_path,col_name=col_name,output_path= patient_output_path)
 
 if __name__ == '__main__':
     cli_main()

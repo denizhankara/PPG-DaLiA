@@ -226,7 +226,7 @@ def cli_main():
     #  Process each of the files and export to output path
     for subfolder in subfolders:
         processData(subfolder, output_path)
-        exit()
+        #exit()
 
 
 if __name__ == '__main__':
