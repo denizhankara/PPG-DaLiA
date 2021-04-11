@@ -108,7 +108,7 @@ def extractFeaturesAndSave(patient_data_path,col_name,output_path):
     time_col = "index"
 
     cols = [window_ID,time_col,col_name] # just use id,time and column to extract features
-    df = pd.read_csv(patient_data_path,nrows=1000,usecols=cols)
+    df = pd.read_csv(patient_data_path,usecols=cols)
 
     for key in features_to_be_extracted.keys():
         feature_file_name = output_path + "/" +  col_name + "_" + key + ".csv"  # check if feature is already extracted
