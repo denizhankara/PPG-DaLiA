@@ -174,7 +174,7 @@ def rollWindows(signals):
 
     signals.reset_index(level=0, inplace=True)
 
-    # signals=signals.iloc[:1000]
+    #signals=signals.iloc[:1000]
 
     signals = roll_time_series(signals, column_id="Subject", column_sort="index", max_timeshift=7, min_timeshift=7)
 
@@ -189,7 +189,9 @@ def rollWindows(signals):
     cols = [cols[-1]] + cols[:-1]
     signals = signals[cols]
 
-    return signals
+    # make the window labels by taking the mean of HR over the 8 second sliding window
+    window_labels = signals.groupby(['window_ID']).mean()['Label']
+    return signals,window_labels
 
 
 def processData(subfolder, output_path):
@@ -200,12 +202,17 @@ def processData(subfolder, output_path):
 
     signals = load_data(patient_path)
     signals = encodeFields(signals)
-    signals = rollWindows(signals)
+    signals,window_labels = rollWindows(signals)
 
     # save processed data to appropriate path
 
     dump_dir = os.path.join(output_path, current_subject + ".csv")
     signals.to_csv(dump_dir,index=False)
+
+    # Save the labels of the windows to the appropriate path
+
+    window_labels_dump_dir = os.path.join(output_path,current_subject+ "_labels.csv")
+    window_labels.to_csv(window_labels_dump_dir)
 
     # Give prompt
     print("Processing of " + current_subject + " is complete ! \n")
@@ -226,7 +233,6 @@ def cli_main():
     #  Process each of the files and export to output path
     for subfolder in subfolders:
         processData(subfolder, output_path)
-        #exit()
 
 
 if __name__ == '__main__':

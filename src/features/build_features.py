@@ -110,7 +110,7 @@ def extractFeaturesAndSave(col_name,patient_data_path,output_path):
     time_col = "index"
 
     cols = [window_ID,time_col,col_name] # just use id,time and column to extract features
-    df = pd.read_csv(patient_data_path,usecols=cols,nrows=1000) # nrows=1000
+    df = pd.read_csv(patient_data_path,usecols=cols) # nrows=1000
 
     for key in features_to_be_extracted.keys():
         feature_file_name = output_path + "/" +  col_name + "_" + key + ".csv"  # check if feature is already extracted
@@ -130,12 +130,14 @@ def extractFeaturesAndSave(col_name,patient_data_path,output_path):
 
 
         """Impute the highly sparse features to get ready for training"""
+
         print("Start imputation")
         # replace NaN's with medians, -inf's with min value and +inf with max value
         # if no finite value exists, fill with zeros
         impute(extracted_features)
         print("End imputation")
 
+        """Save the extracted features to file for later use"""
         extracted_features.to_csv(feature_file_name)
 
         # remove and collect garbage
