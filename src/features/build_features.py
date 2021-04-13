@@ -175,6 +175,9 @@ def cli_main():
         """for each patient data, extract the features column by column
         so that they can be used as desired,seperately or altogether"""
 
+        if "labels" in patient_data_path:
+            continue
+
         # Extract current subject from filename and make a dedicated directory
         current_subject = os.path.splitext(os.path.split(patient_data_path)[-1])[0]
         patient_output_path = os.path.join(output_path,current_subject)
