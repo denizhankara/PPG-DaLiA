@@ -5,6 +5,11 @@ from itertools import product
 import os
 from glob import glob
 
+from sklearn.datasets import load_boston
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_score, KFold
+from sklearn.metrics import mean_squared_error,mean_absolute_error
+import matplotlib.pyplot as plt
 
 # Features to perform the training on
 optimal_features = {"maximum": None,
@@ -33,13 +38,25 @@ optimal_features = {"maximum": None,
 
 
 def checkIsInOptimals(optimal_features, filename):
-
+    """Check if the feature is of desired kind, like fft etc"""
     # get the exact feature name from filename
     feature_name = os.path.splitext(os.path.basename(filename))[0] # exact feature name
     for key in optimal_features.keys():
         if key in feature_name:
             return True
     return False
+
+def checkIsInDesiredColumns(selected_columns,filename):
+
+    """Check if the feature in desired column"""
+
+    # get the exact feature name from filename
+    feature_name = os.path.splitext(os.path.basename(filename))[0]  # exact feature name
+    for key in selected_columns:
+        if key in feature_name:
+            return True
+    return False
+
 
 
 
@@ -51,7 +68,7 @@ def selectFeatures(extracted_features_path,patient_output_path):
         extracted_features_path ([type]): [file with the extracted features]
     """
 
-
+    selected_columns=["Activity","chest","Rpeaks","wrist"]
     """Continue regular selectFeatures"""
     path = extracted_features_path  # use your path
     all_files = glob(path + "/*.csv")
@@ -61,7 +78,7 @@ def selectFeatures(extracted_features_path,patient_output_path):
     if os.path.exists(patient_output_path + "/selected_features.csv"):
         print("Early returning of selected features !")
 
-        df = pd.read_csv(path + "/selected_features.csv", index_col=0)
+        df = pd.read_csv(patient_output_path + "/selected_features.csv", index_col=0)
         if "labels" in df.columns:
             df = df.drop(['labels'], axis=1)
 
@@ -79,8 +96,16 @@ def selectFeatures(extracted_features_path,patient_output_path):
         if "png" in filename:
             continue
 
+        # check for feature type
         if not checkIsInOptimals(optimal_features, filename):
             continue
+
+
+        # check for column type
+
+        if not checkIsInDesiredColumns(selected_columns,filename):
+            continue
+
 
         df = pd.read_csv(filename, index_col=0, header=0)
         li.append(df)
@@ -93,16 +118,41 @@ def selectFeatures(extracted_features_path,patient_output_path):
         df = df.drop(['labels'], axis=1)
 
     # Save the selected features to relevant path
-    df.to_csv(path + "/selected_features.csv")
+    df.to_csv(patient_output_path + "/selected_features.csv")
     return df
 
 
-def trainModel(patient_data, label_path, patient_output_path):
+def trainModel(current_subject,patient_data, label_path, patient_output_path):
 
-    pass
+    label_path = os.path.join(label_path,current_subject+"_labels.csv")
+
+    labels= pd.read_csv(label_path,index_col="window_ID")
+
+    X_train, X_test, y_train, y_test = train_test_split(patient_data, labels,
+                                                        test_size=0.2, random_state=42)
+
+    # just use simple model without hyperparameter tuning
+
+    xgb_model = xgboost.XGBRegressor(random_state=42)
+    # train
+    xgb_model.fit(X_train, y_train)
+    # predict
+    y_pred = xgb_model.predict(X_test)
+
+    # save the model to output file
+    import pickle
+
+    file_name = patient_output_path + "_xgb_reg.pkl"
+    pickle.dump(xgb_model, open(file_name, "wb"))
+
+    MAE = mean_absolute_error(y_true=y_test,y_pred=y_pred)
+
+    print("The MAE value for patient :" + current_subject)
+    print(MAE)
 
 
-def evaluatePatient(patient_data_path,label_path,patient_output_path):
+
+def evaluatePatient(current_subject,patient_data_path,label_path,patient_output_path):
     """
     Evaluate the patient by merging features and training-outputting a model
 
@@ -114,7 +164,7 @@ def evaluatePatient(patient_data_path,label_path,patient_output_path):
 
     # Train a model and save the model and corresponding test results
 
-    trainModel(patient_data,label_path,patient_output_path)
+    trainModel(current_subject,patient_data,label_path,patient_output_path)
 
     pass
 
@@ -153,7 +203,7 @@ def cli_main():
             os.makedirs(patient_output_path)
 
 
-        evaluatePatient(patient_data_path,label_path,patient_output_path)
+        evaluatePatient(current_subject,patient_data_path,label_path,patient_output_path)
 
 
 
