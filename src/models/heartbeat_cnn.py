@@ -64,13 +64,13 @@ optimizer = torch.optim.SGD(model.parameters(), lr = 0.001)
 #set number of epochs
 n_epochs = 5
 
-def train_model(model, train_dataloader, n_epoch = n_epochs, optimizer=optimizer, criterion=criterion):
+def train_model(model, train_loader, n_epoch = n_epochs, optimizer=optimizer, criterion=criterion):
 
     model.train()  # prep model for training
 
     for epoch in range(n_epoch):
         curr_epoch_loss = []
-        for data, target in train_dataloader:
+        for data, target in train_loader:
             # your code here
             outputs = model(data)
             loss = criterion(outputs, target)
@@ -85,10 +85,10 @@ def train_model(model, train_dataloader, n_epoch = n_epochs, optimizer=optimizer
     return model
 
 
-def eval_model(model, dataloader):
+def eval_model(model, val_loader):
     model.eval()
 
-    for data, target in dataloader:
+    for data, target in val_loader:
         # your code here
         outputs = model(data)
 
