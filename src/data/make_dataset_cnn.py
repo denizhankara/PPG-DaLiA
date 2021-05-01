@@ -7,6 +7,7 @@ import os
 from scipy import signal
 import pickle
 from tqdm import tqdm
+from scipy.stats import zscore
 
 
 def col_stft(dataframe):
@@ -67,6 +68,8 @@ def processData(file, output_path):
             _ , _, Sxx = signal.stft(sig_window[0][var], fs=8, nfft=2048, nperseg=8)
             # calculate magnitude, transpose, and convert to DataFrame
             Sxx = pd.DataFrame(np.transpose(np.abs(Sxx)))
+            # z-score normalization by row
+            Sxx = Sxx.apply(zscore, axis=1)
             # append dataframes to the list
             listSxx.append(Sxx)
         # create dictionary entry for the current window
