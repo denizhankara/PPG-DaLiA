@@ -60,6 +60,7 @@ class SimpleCNN(nn.Module):
         # self.conv3 = nn.Conv2d(in_channels=32,out_channels=64,kernel_size=(1,3),stride=(1,1))
         # self.fc1 = nn.Linear(1*126*32,1*126*32)
         # self.fc2 = nn.Linear(512,2)
+        pass
         
     def forward(self, x):
         #input is of shape (batch_size=32, 3, 1025, 4)
@@ -73,6 +74,7 @@ class SimpleCNN(nn.Module):
         # x = F.relu(self.fc1(x))        
         # x = self.fc2(x)
         # return(x)
+        pass
 
 
 def cli_main():
