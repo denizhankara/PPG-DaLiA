@@ -85,10 +85,30 @@ def train_model(model, train_loader, n_epoch = n_epochs, optimizer=optimizer, cr
     return model
 
 
+
 def eval_model(model, val_loader):
     model.eval()
+
+    mae_list = []
+    window_count = 0
 
     for data, target in val_loader:
         # your code here
         outputs = model(data)
+
+        pred_value = outputs.numpy()
+        target_value = target.numpy()
+
+        mae_value = pred_value - target_value
+
+        mae_list.append(mae_value)
+        window_count = window_count + 1
+
+    return mae_list, window_count
+
+model = train_model(model, train_loader)
+mae_list, window_count = eval_model(model, val_loader)
+
+mae = (np.sum(mae_list)) / window_count
+print(mae)
 
