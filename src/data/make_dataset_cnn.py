@@ -8,27 +8,8 @@ from scipy import signal
 import pickle
 from tqdm import tqdm
 from scipy.stats import zscore
+import torch
 
-
-def col_stft(dataframe):
-    """
-    input: dataframe - a dataframe of signals to be processed 
-    output: df_fft - a dataframe of short time Fourier transformed signals
-    """
-    # initialize empty list to store fft results
-    list_fft = []
-    for c in columns:
-        # take STFT
-        _, _, Sxx = signal.stft(dataframe[c], fs=8)
-        # calculate magnitude
-        Sxx = np.abs(Sxx)
-        # append to list
-        list_fft.append(Sxx)
-
-    # convert to dataframe
-    df_fft = pd.DataFrame(np.column_stack(list_fft))
-
-    return df_fft
 
 
 def save_object(obj, filename):
@@ -70,10 +51,18 @@ def processData(file, output_path):
             Sxx = pd.DataFrame(np.transpose(np.abs(Sxx)))
             # z-score normalization by row
             Sxx = Sxx.apply(zscore, axis=1)
+            # convert transformed data to list of tensors
+            list_of_tensors = [torch.tensor(df, dtype=torch.float32) for df in Sxx]
+            # stack tensors to get tyhe right sshape (3, 1025)
+            tstack = torch.stack(list_of_tensors)
             # append dataframes to the list
-            listSxx.append(Sxx)
-        # create dictionary entry for the current window
-        dictlist[str(x['window_ID'].iloc[0])] = listSxx
+            listSxx.append(tstack)
+        # stack the channel tensors - yields a tensor (4, 3, 1025)
+        cstack = torch.stack(listSxx)
+        # permute the tensor to get the right shape (3, 1025, 4)
+        cstack = cstack.permute(1, 2, 0)
+        # add stacked channels to the dictionary with window_ID as key
+        dictlist[str(x['window_ID'].iloc[0])] = cstack
     
     # save processed data to appropriate path  
     dump_file = os.path.join(output_path, fname+".pkl")
