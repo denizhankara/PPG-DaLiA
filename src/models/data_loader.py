@@ -108,6 +108,12 @@ def cli_main():
     print(x.shape)
     print(y.shape)
 
+    # end time
+    _END_RUNTIME = time.time()
+
+    # total time taken
+    print(f"Runtime is {_END_RUNTIME - _START_RUNTIME}")
+
     pass
   
     

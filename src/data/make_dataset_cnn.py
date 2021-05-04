@@ -40,7 +40,7 @@ def processData(file, output_path):
     dictlist = {}
 
     # loop over all window_IDs
-    for x in tqdm(sig_window):
+    for x in tqdm(sig_window, bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}'):
         # list of dataframes to store results
         listSxx = []
         # take short time Fourier transform of the relevant columns
@@ -59,8 +59,6 @@ def processData(file, output_path):
             listSxx.append(tstack)
         # stack the channel tensors - yields a tensor (4, 3, 1025)
         cstack = torch.stack(listSxx)
-        # permute the tensor to get the right shape (3, 1025, 4)
-        cstack = cstack.permute(1, 2, 0)
         # add stacked channels to the dictionary with window_ID as key
         dictlist[str(x['window_ID'].iloc[0])] = cstack
     
