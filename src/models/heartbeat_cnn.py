@@ -14,6 +14,8 @@ from tqdm import tqdm
 import re
 from sklearn.metrics import mean_absolute_error
 
+# set device
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class CustomDataset(Dataset):
  
@@ -103,11 +105,10 @@ def train_model(model, train_loader, n_epoch = None, optimizer=None, criterion=N
         curr_epoch_loss = []
         for data, target in tqdm(train_loader, bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}'):
 
+            data, target = data.to(device), target.to(device)
             outputs = model.forward(data)
             outputs = outputs.view(outputs.size(0))
-            #target = target.view(target.size(0), 1) 
-            #print(outputs.shape)
-            #print(target.shape)
+
             loss = criterion(outputs, target)
 
             optimizer.zero_grad()
@@ -129,12 +130,15 @@ def eval_model(model, val_loader):
     Y_true = []
 
     for data, target in tqdm(val_loader, bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}'):
+        
+        data, target = data.to(device), target.to(device)
+        
         # run the inputs through the model
         outputs = model.forward(data)
 
         # get predicted and target values
-        pred_value = outputs.detach().numpy()
-        target_value = target.detach().numpy()
+        pred_value = outputs.detach().cpu().numpy()
+        target_value = target.detach().cpu().numpy()
 
         # append values to the lists
         Y_pred.append(pred_value)
@@ -148,6 +152,9 @@ def eval_model(model, val_loader):
 
 
 def cli_main():
+    # set device
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     # set seed
     seed = 42
     random.seed(seed)
@@ -172,6 +179,7 @@ def cli_main():
     #initialize CNN model
     model = HeartbeatCNN()
     print(model)
+    model.to(device)
 
     #initialize criterion and optimizer
     criterion = torch.nn.MSELoss()
