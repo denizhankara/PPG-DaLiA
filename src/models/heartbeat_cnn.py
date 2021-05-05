@@ -12,6 +12,7 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import re
+from sklearn.metrics import mean_absolute_error
 
 
 class CustomDataset(Dataset):
@@ -125,7 +126,7 @@ def eval_model(model, val_loader):
     model.eval()
 
     Y_pred = []
-    Y_test = []
+    Y_true = []
 
     for data, target in tqdm(val_loader, bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}'):
         # run the inputs through the model
@@ -137,13 +138,13 @@ def eval_model(model, val_loader):
 
         # append values to the lists
         Y_pred.append(pred_value)
-        Y_test.append(target_value)
+        Y_true.append(target_value)
 
     # concatenate predictions and test data
     Y_pred = np.concatenate(Y_pred, axis=0)
-    Y_test = np.concatenate(Y_test, axis=0)
+    Y_true = np.concatenate(Y_true, axis=0)
 
-    return Y_pred, Y_test #mae_list, window_count
+    return Y_pred, Y_true
 
 
 def cli_main():
@@ -177,12 +178,12 @@ def cli_main():
     optimizer = torch.optim.Adam(model.parameters(), lr = 0.0001)
 
     #set number of epochs
-    n_epochs = 5
+    n_epochs = 1
 
     # iterate over all subjects
     for f, l in zip(files, labels):
         # current subject to process
-        current_subject = os.path.splitext(f)[0]
+        current_subject = os.path.splitext(os.path.basename(f))[0]
         
         # read pickle for subject
         x_pkl = pd.read_pickle(f)
@@ -211,10 +212,10 @@ def cli_main():
         model = train_model(model, train_loader, n_epoch = n_epochs, optimizer=optimizer, criterion=criterion)
 
         # evaluate model
-        y_pred, y_test = eval_model(model, val_loader)
+        y_pred, y_true = eval_model(model, val_loader)
 
         # calculate model performance
-        mae = np.mean(np.absolute(y_pred - y_test))
+        mae = mean_absolute_error(y_true, y_pred)
         print(f"Subject {current_subject}: mae={mae}")
 
 if __name__ == '__main__':
