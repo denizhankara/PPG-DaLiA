@@ -1,4 +1,5 @@
 import os
+from pathlib import Path, PurePath
 import random
 import numpy as np
 import pandas as pd
@@ -10,7 +11,8 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import statistics as stats
+import re
+
 
 class CustomDataset(Dataset):
  
@@ -40,35 +42,9 @@ class CustomDataset(Dataset):
         y = self.y[index]
         # convert labels to tensor
         y = torch.tensor(y, dtype=torch.float32)
-        # x = x.permute(2, 0, 1)
         return x, y
 
-# set seed
-seed = 42
-random.seed(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-os.environ["PYTHONHASHSEED"] = str(seed)
-# read pickle for subject 1
-x_pkl = pd.read_pickle("../../data/interim/PPG_FieldStudy_CNN_Input/S1.pkl")
-# create dataframe
-xdf = pd.DataFrame(list(x_pkl.items()),columns = ['window_ID','Data'])
-# read lables for subject 1
-file = '../../data/interim/PPG_FieldStudy_Windowed/S1_labels.csv'
-ydf = pd.read_csv(file)
-# merge data and labels
-data_subject = pd.merge(xdf, ydf, on="window_ID")
-# create custom dataset
-dataset = CustomDataset(data_subject['Data'], data_subject['Label'])
-# split dataset to train and test data
-train_size = int(0.8 * len(dataset))
-test_size = len(dataset) - train_size
-train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
 
-#load data into train and val
-# need to chang
-#train_dataset =
-#val_dataset =
 
 def load_data(train_dataset, val_dataset):
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = 32, shuffle = True)
@@ -76,9 +52,9 @@ def load_data(train_dataset, val_dataset):
 
     return train_loader, val_loader
 
-train_loader, val_loader = load_data(train_dataset, val_dataset)
 
-#initialize CNN model
+
+# CNN model
 class HeartbeatCNN(nn.Module):
     def __init__(self):
         super(HeartbeatCNN, self).__init__()
@@ -116,18 +92,9 @@ class HeartbeatCNN(nn.Module):
 
         return x
 
-model = HeartbeatCNN()
-print(model)
-
-#initialize criterion and optimizer (need to fill with correct types)
-criterion = torch.nn.MSELoss()
-optimizer = torch.optim.Adam(model.parameters(), lr = 0.0001)
-
-#set number of epochs
-n_epochs = 1
 
 
-def train_model(model, train_loader, n_epoch = n_epochs, optimizer=optimizer, criterion=criterion):
+def train_model(model, train_loader, n_epoch = None, optimizer=None, criterion=None):
 
     model.train()  # prep model for training
 
@@ -178,9 +145,77 @@ def eval_model(model, val_loader):
 
     return Y_pred, Y_test #mae_list, window_count
 
-model = train_model(model, train_loader)
-y_pred, y_test = eval_model(model, val_loader)
 
+def cli_main():
+    # set seed
+    seed = 42
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
 
-mae = np.mean(np.absolute(y_pred - y_test))
-print(mae)
+    # Get all the processed data in interim folder
+    data_path = "../../data/interim/PPG_FieldStudy_CNN_Input/"
+    # find all files in folder
+    files = [f.path for f in os.scandir(data_path) if f.is_file()]
+    # sort in order by subject (numerical part)
+    files.sort(key=lambda f: int(re.sub('\D', '', f)))
+    # Get all the labels data in interim folder
+    labels_path = "../../data/interim/PPG_FieldStudy_Windowed/"
+    labels = [f.path for f in os.scandir(labels_path) if f.is_file() and 'labels' in PurePath(f).name]
+    # sort in order by subject (numerical part)
+    labels.sort(key=lambda f: int(re.sub('\D', '', f)))
+    #print(files)
+    #print(labels)
+
+    #initialize CNN model
+    model = HeartbeatCNN()
+    print(model)
+
+    #initialize criterion and optimizer
+    criterion = torch.nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr = 0.0001)
+
+    #set number of epochs
+    n_epochs = 5
+
+    # iterate over all subjects
+    for f, l in zip(files, labels):
+        # current subject to process
+        current_subject = os.path.splitext(f)[0]
+        
+        # read pickle for subject
+        x_pkl = pd.read_pickle(f)
+
+        # create dataframe
+        xdf = pd.DataFrame(list(x_pkl.items()),columns = ['window_ID','Data'])
+
+        # read lables for subject
+        ydf = pd.read_csv(l)
+
+        # merge data and labels
+        data_subject = pd.merge(xdf, ydf, on="window_ID")
+
+        # create custom dataset
+        dataset = CustomDataset(data_subject['Data'], data_subject['Label'])
+
+        # split dataset to train and test data
+        train_size = int(0.8 * len(dataset))
+        test_size = len(dataset) - train_size
+        train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+
+        #load data into train and val
+        train_loader, val_loader = load_data(train_dataset, val_dataset)
+
+        # train model
+        model = train_model(model, train_loader, n_epoch = n_epochs, optimizer=optimizer, criterion=criterion)
+
+        # evaluate model
+        y_pred, y_test = eval_model(model, val_loader)
+
+        # calculate model performance
+        mae = np.mean(np.absolute(y_pred - y_test))
+        print(f"Subject {current_subject}: mae={mae}")
+
+if __name__ == '__main__':
+    cli_main()
