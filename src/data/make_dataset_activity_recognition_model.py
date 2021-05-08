@@ -291,6 +291,15 @@ def processData(subfolder, output_path):
 
     # Save the labels of the windows to the appropriate path
 
+    # add the predicted activities to label file as well for brevity
+    del signals['Label']
+
+    window_labels = pd.DataFrame(window_labels)
+    window_labels = pd.merge(window_labels, signals, left_on=window_labels.index, right_on='window_ID')
+    window_labels = window_labels[['window_ID', 'Label', 'predicted_activity']]
+    window_labels.drop_duplicates(subset=['window_ID'], keep='first', inplace=True)
+
+
     window_labels_dump_dir = os.path.join(output_path,current_subject+ "_labels.csv")
     window_labels.to_csv(window_labels_dump_dir)
 

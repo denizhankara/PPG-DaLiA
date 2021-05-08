@@ -74,7 +74,7 @@ def processData(file, output_path):
 
 def cli_main():
     # Get all the patient data in raw folder
-    data_path = "../../data/interim/PPG_FieldStudy_Windowed/"
+    data_path = "../../data/interim/PPG_FieldStudy_Windowed_Activity_Recognition/"
     # find all files in folder
     files = [f.path for f in os.scandir(data_path) if f.is_file() and 'labels' not in PurePath(f).name]
     # sort them by time
