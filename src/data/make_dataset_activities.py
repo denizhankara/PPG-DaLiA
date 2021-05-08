@@ -14,9 +14,9 @@ def processData(file, output_path):
     signals = pd.read_csv(file)
     # subset x, y, z acceleration, measured heart rate and activity
     signals = signals[['window_ID','wrist_ACC_x','wrist_ACC_y','wrist_ACC_z','wrist_BVP', 'Activity']]
-    # group signals by activity
-    sig_activity = [x for _, x in signals.groupby('Activity')]
-   
+    # group signals by activity and window and select only those that have a full window (8)
+    sig_activity = [x for _, x in signals.groupby(['Activity','window_ID']).filter(lambda x: len(x) == 8).groupby('Activity')]
+    #print(sig_activity)
 
     # save processed data to appropriate path
     # filename w/o ext
@@ -39,7 +39,7 @@ def cli_main():
     
     
     #  Make output path for saving the processed results
-    output_path = "../../data/interim/PPG_FieldStudy_Activities/"
+    output_path = "../../data/interim/PPG_FieldStudy_Activities_Filtered/"
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
@@ -47,7 +47,6 @@ def cli_main():
     for file in files:
         #print(file)
         processData(file, output_path)
-
 
 if __name__ == '__main__':
     cli_main()

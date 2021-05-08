@@ -8,7 +8,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import time
-import torch.nn.functional as F
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 
@@ -16,7 +15,6 @@ from torch.utils.data import DataLoader
 class CustomDataset(Dataset):
     
     def __init__(self, x_data, y_data):
-        
         """
         Store `x_data`. to `self.x` and `y_data` to `self.y`.
         """ 
@@ -24,7 +22,6 @@ class CustomDataset(Dataset):
         self.y = y_data
             
     def __len__(self):
-        
         """
         Return the number of samples (i.e. windows)
         """
@@ -32,7 +29,6 @@ class CustomDataset(Dataset):
         
     
     def __getitem__(self, index):
-        
         """
         Generates one sample of data.
         """
@@ -47,36 +43,6 @@ class CustomDataset(Dataset):
         return x, y
 
 
-
-
-class SimpleCNN(nn.Module):
-    def __init__(self):
-        super(SimpleCNN, self).__init__()
-        # self.conv1 = nn.Conv2d(in_channels=4,out_channels=8,kernel_size=(1,1),stride=(1,1))
-        # self.conv2 = nn.Conv2d(in_channels=8,out_channels=16,kernel_size=(3,3),stride=(1,1))
-        # self.maxpool2 = nn.MaxPool2d(kernel_size=(1,2),stride=(1,2))
-        # self.conv3 = nn.Conv2d(in_channels=16,out_channels=32,kernel_size=(1,3),stride=(1,1)) 
-        # self.maxpool3 = nn.MaxPool2d(kernel_size=(1,2),stride=(1,2))
-        # self.conv3 = nn.Conv2d(in_channels=32,out_channels=64,kernel_size=(1,3),stride=(1,1))
-        # self.fc1 = nn.Linear(1*126*32,1*126*32)
-        # self.fc2 = nn.Linear(512,2)
-        pass
-        
-    def forward(self, x):
-        #input is of shape (batch_size=32, 3, 1025, 4)
-        # x = F.relu(self.conv1(x))
-        # x = F.max_pool2d(x,1,2)
-        # x = F.relu(self.conv2(x))  
-        # x = F.max_pool2d(x,2,2)
-        
-        # x = x.view(-1,13*13*4)        
-           
-        # x = F.relu(self.fc1(x))        
-        # x = self.fc2(x)
-        # return(x)
-        pass
-
-
 def cli_main():
     _START_RUNTIME = time.time()
     # set seed
@@ -86,7 +52,7 @@ def cli_main():
     torch.manual_seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
     # read pickle for subject 1
-    x_pkl = pd.read_pickle("../../data/interim/PPG_FieldStudy_CNN_Input/S1.pkl")
+    x_pkl = pd.read_pickle("../../data/interim/PPG_FieldStudy_CNN_Input_byActivity/S1_Activity_0.pkl")
     # create dataframe
     xdf = pd.DataFrame(list(x_pkl.items()),columns = ['window_ID','Data'])
     # read lables for subject 1
