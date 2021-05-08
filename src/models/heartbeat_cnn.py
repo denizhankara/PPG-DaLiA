@@ -191,7 +191,7 @@ def cli_main():
     optimizer = torch.optim.Adam(model.parameters(), lr = 0.0001)
 
     #set number of epochs
-    n_epochs = 1
+    n_epochs = 6
 
     # iterate over all subjects
     for f, l in zip(files, labels):
