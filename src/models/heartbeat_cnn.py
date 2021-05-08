@@ -41,17 +41,18 @@ class CustomDataset(Dataset):
         """
         if torch.is_tensor(index):
             index = index.tolist()       
-        x = self.x[index]
+        x = self.x['Data'][index] #self.x[index]
         y = self.y[index]
+        activity = torch.tensor(self.x['predicted_activity'][index],dtype=torch.float32)
         # convert labels to tensor
         y = torch.tensor(y, dtype=torch.float32)
-        return x, y
+        return x, y ,activity
 
 
 
 def load_data(train_dataset, val_dataset):
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = 32, shuffle = True)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size = 32, shuffle = False)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = 128, shuffle = True)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size = 128, shuffle = False)
 
     return train_loader, val_loader
 
@@ -73,11 +74,11 @@ class HeartbeatCNN(nn.Module):
         self.conv10 = nn.Conv2d(2048, 32, (1, 1), stride=(1, 1))
         self.pool = nn.MaxPool2d((1, 2), (1, 2))
         self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(192, 64)
+        self.fc1 = nn.Linear(193, 64)
         self.fc2 = nn.Linear(64, 1)
         self.dropout = nn.Dropout(p=0.5)
 
-    def forward(self, x):
+    def forward(self, x,activity):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = self.pool(F.relu(self.conv3(x)))
@@ -89,6 +90,10 @@ class HeartbeatCNN(nn.Module):
         x = self.pool(F.relu(self.conv9(x)))
         x = F.relu(self.conv10(x))
         x = self.flatten(x)
+
+        activity = activity.resize_((activity.shape[0], 1))
+
+        x = torch.cat((x,activity),dim=1)
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
         x = self.fc2(x)
@@ -103,10 +108,10 @@ def train_model(model, train_loader, n_epoch = None, optimizer=None, criterion=N
 
     for epoch in range(n_epoch):
         curr_epoch_loss = []
-        for data, target in tqdm(train_loader, bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}'):
+        for data, target,activity in tqdm(train_loader, bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}'):
 
             data, target = data.to(device), target.to(device)
-            outputs = model.forward(data)
+            outputs = model.forward(data,activity)
             outputs = outputs.view(outputs.size(0))
 
             loss = criterion(outputs, target)
@@ -129,12 +134,12 @@ def eval_model(model, val_loader):
     Y_pred = []
     Y_true = []
 
-    for data, target in tqdm(val_loader, bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}'):
+    for data, target, activity in tqdm(val_loader, bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}'):
         
         data, target = data.to(device), target.to(device)
         
         # run the inputs through the model
-        outputs = model.forward(data)
+        outputs = model.forward(data,activity)
 
         # get predicted and target values
         pred_value = outputs.detach().cpu().numpy()
@@ -169,7 +174,7 @@ def cli_main():
     # sort in order by subject (numerical part)
     files.sort(key=lambda f: int(re.sub('\D', '', f)))
     # Get all the labels data in interim folder
-    labels_path = "../../data/interim/PPG_FieldStudy_Windowed/"
+    labels_path = "../../data/interim/PPG_FieldStudy_Windowed_Activity_Recognition/"
     labels = [f.path for f in os.scandir(labels_path) if f.is_file() and 'labels' in PurePath(f).name]
     # sort in order by subject (numerical part)
     labels.sort(key=lambda f: int(re.sub('\D', '', f)))
@@ -206,12 +211,12 @@ def cli_main():
         data_subject = pd.merge(xdf, ydf, on="window_ID")
 
         # create custom dataset
-        dataset = CustomDataset(data_subject['Data'], data_subject['Label'])
+        dataset = CustomDataset(data_subject[['Data','predicted_activity']],data_subject['Label'])
 
         # split dataset to train and test data
         train_size = int(0.8 * len(dataset))
         test_size = len(dataset) - train_size
-        train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, test_size],random_state=42)
+        train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
 
         #load data into train and val
         train_loader, val_loader = load_data(train_dataset, val_dataset)
@@ -219,6 +224,7 @@ def cli_main():
         # train model
         model = train_model(model, train_loader, n_epoch = n_epochs, optimizer=optimizer, criterion=criterion)
 
+        # exit()
         # evaluate model
         y_pred, y_true = eval_model(model, val_loader)
 
