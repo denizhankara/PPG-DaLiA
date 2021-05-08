@@ -15,12 +15,13 @@ from torch.utils.data import DataLoader
 
 class CustomDataset(Dataset):
     
-    def __init__(self, x_data, y_data):
+    def __init__(self, x_data, y_data, a_data):
         
         """
-        Store `x_data`. to `self.x` and `y_data` to `self.y`.
+        Store `x_data`. to `self.x`, `a_data` to `self.a`, and `y_data` to `self.y`.
         """ 
         self.x = x_data
+        self.a = a_data
         self.y = y_data
             
     def __len__(self):
@@ -40,41 +41,13 @@ class CustomDataset(Dataset):
             index = index.tolist()
         
         x = self.x[index]
+        a = self.a[index]
         y = self.y[index]
-        # convert labels to tensor
+        # convert activity and labels to tensor
+        a = torch.tensor(a, dtype=torch.float32)
         y = torch.tensor(y, dtype=torch.float32)
 
-        return x, y
-
-
-
-
-class SimpleCNN(nn.Module):
-    def __init__(self):
-        super(SimpleCNN, self).__init__()
-        # self.conv1 = nn.Conv2d(in_channels=4,out_channels=8,kernel_size=(1,1),stride=(1,1))
-        # self.conv2 = nn.Conv2d(in_channels=8,out_channels=16,kernel_size=(3,3),stride=(1,1))
-        # self.maxpool2 = nn.MaxPool2d(kernel_size=(1,2),stride=(1,2))
-        # self.conv3 = nn.Conv2d(in_channels=16,out_channels=32,kernel_size=(1,3),stride=(1,1)) 
-        # self.maxpool3 = nn.MaxPool2d(kernel_size=(1,2),stride=(1,2))
-        # self.conv3 = nn.Conv2d(in_channels=32,out_channels=64,kernel_size=(1,3),stride=(1,1))
-        # self.fc1 = nn.Linear(1*126*32,1*126*32)
-        # self.fc2 = nn.Linear(512,2)
-        pass
-        
-    def forward(self, x):
-        #input is of shape (batch_size=32, 3, 1025, 4)
-        # x = F.relu(self.conv1(x))
-        # x = F.max_pool2d(x,1,2)
-        # x = F.relu(self.conv2(x))  
-        # x = F.max_pool2d(x,2,2)
-        
-        # x = x.view(-1,13*13*4)        
-           
-        # x = F.relu(self.fc1(x))        
-        # x = self.fc2(x)
-        # return(x)
-        pass
+        return x, a, y
 
 
 def cli_main():
@@ -90,12 +63,13 @@ def cli_main():
     # create dataframe
     xdf = pd.DataFrame(list(x_pkl.items()),columns = ['window_ID','Data'])
     # read lables for subject 1
-    file = '../../data/interim/PPG_FieldStudy_Windowed/S1_labels.csv'
+    file = '../../data/interim/PPG_FieldStudy_Windowed_Activity_Recognition/S1_labels.csv'
     ydf = pd.read_csv(file)
+    #print(ydf.head(3))
     # merge data and labels
     data_subject = pd.merge(xdf, ydf, on="window_ID")
     # create custom dataset
-    dataset = CustomDataset(data_subject['Data'], data_subject['Label'])
+    dataset = CustomDataset(data_subject['Data'], data_subject['predicted_activity'], data_subject['Label'])
     # split dataset to train and test data
     train_size = int(0.8 * len(dataset))
     test_size = len(dataset) - train_size
@@ -103,10 +77,15 @@ def cli_main():
     # load a batch of train dataset
     data_loader = DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=0)
     loader_iter = iter(data_loader)
-    x, y = next(loader_iter)
+    x, a, y = next(loader_iter)
     # check dimensions
-    print(x.shape)
-    print(y.shape)
+    print("shapeof x:", x.shape)
+    print("shapeof a:",a.shape)
+    print("shapeof y:",y.shape)
+
+    #print(x)
+    #print(a)
+    #print(y)
 
     # end time
     _END_RUNTIME = time.time()
