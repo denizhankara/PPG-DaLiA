@@ -211,7 +211,7 @@ def cli_main():
         # split dataset to train and test data
         train_size = int(0.8 * len(dataset))
         test_size = len(dataset) - train_size
-        train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+        train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, test_size],random_state=42)
 
         #load data into train and val
         train_loader, val_loader = load_data(train_dataset, val_dataset)
