@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import os
 from pathlib import Path, PurePath
 import random
@@ -51,11 +52,10 @@ class CustomDataset(Dataset):
 
 
 def load_data(train_dataset, val_dataset):
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = 128, shuffle = True)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size = 128, shuffle = False)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = 256, shuffle = True)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size = 256, shuffle = False)
 
     return train_loader, val_loader
-
 
 
 # CNN model
@@ -78,23 +78,23 @@ class HeartbeatCNN(nn.Module):
         self.fc2 = nn.Linear(64, 1)
         self.dropout = nn.Dropout(p=0.5)
 
-    def forward(self, x,activity):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = self.pool(F.relu(self.conv3(x)))
-        x = self.pool(F.relu(self.conv4(x)))
-        x = self.pool(F.relu(self.conv5(x)))
-        x = self.pool(F.relu(self.conv6(x)))
-        x = self.pool(F.relu(self.conv7(x)))
-        x = self.pool(F.relu(self.conv8(x)))
-        x = self.pool(F.relu(self.conv9(x)))
-        x = F.relu(self.conv10(x))
+    def forward(self, x, activity):
+        x = F.elu(self.conv1(x))
+        x = F.elu(self.conv2(x))
+        x = self.pool(F.elu(self.conv3(x)))
+        x = self.pool(F.elu(self.conv4(x)))
+        x = self.pool(F.elu(self.conv5(x)))
+        x = self.pool(F.elu(self.conv6(x)))
+        x = self.pool(F.elu(self.conv7(x)))
+        x = self.pool(F.elu(self.conv8(x)))
+        x = self.pool(F.elu(self.conv9(x)))
+        x = F.elu(self.conv10(x))
         x = self.flatten(x)
 
         activity = activity.resize_((activity.shape[0], 1))
 
         x = torch.cat((x,activity),dim=1)
-        x = F.relu(self.fc1(x))
+        x = F.elu(self.fc1(x))
         x = self.dropout(x)
         x = self.fc2(x)
 
@@ -121,7 +121,6 @@ def train_model(model, train_loader, n_epoch = None, optimizer=None, criterion=N
             loss.backward()
             optimizer.step()
 
-            #curr_epoch_loss.append(loss.cpu().data.numpy())
             curr_epoch_loss.append(loss.cpu().detach().numpy())
         print(f"Epoch {epoch}: curr_epoch_loss={np.mean(curr_epoch_loss)}")
     return model
@@ -168,13 +167,13 @@ def cli_main():
     os.environ["PYTHONHASHSEED"] = str(seed)
 
     # Get all the processed data in interim folder
-    data_path = "../../data/interim/PPG_FieldStudy_CNN_Input/"
+    data_path = "./data/"
     # find all files in folder
     files = [f.path for f in os.scandir(data_path) if f.is_file()]
     # sort in order by subject (numerical part)
     files.sort(key=lambda f: int(re.sub('\D', '', f)))
     # Get all the labels data in interim folder
-    labels_path = "../../data/interim/PPG_FieldStudy_Windowed_Activity_Recognition/"
+    labels_path = "./labels"
     labels = [f.path for f in os.scandir(labels_path) if f.is_file() and 'labels' in PurePath(f).name]
     # sort in order by subject (numerical part)
     labels.sort(key=lambda f: int(re.sub('\D', '', f)))
@@ -183,15 +182,23 @@ def cli_main():
 
     #initialize CNN model
     model = HeartbeatCNN()
-    print(model)
+    #print(model)
+    # check how many GPUs are available and parallelize model
+    if torch.cuda.device_count() > 1:
+        print("Using", torch.cuda.device_count(), "GPUs!")
+        model = nn.DataParallel(model)
+    # send model to GPU
     model.to(device)
 
     #initialize criterion and optimizer
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr = 0.0001)
+    optimizer = torch.optim.Adam(model.parameters(), lr = 0.003)
 
     #set number of epochs
     n_epochs = 6
+
+    # save mae results
+    mae_list = {}
 
     # iterate over all subjects
     for f, l in zip(files, labels):
@@ -224,13 +231,18 @@ def cli_main():
         # train model
         model = train_model(model, train_loader, n_epoch = n_epochs, optimizer=optimizer, criterion=criterion)
 
-        # exit()
         # evaluate model
         y_pred, y_true = eval_model(model, val_loader)
 
         # calculate model performance
         mae = mean_absolute_error(y_true, y_pred)
         print(f"Subject {current_subject}: mae={mae}")
+        mae_list[str(current_subject)] = mae
+    
+    # print mae results for all subjects/activities
+    for key, value in mae_list.items():
+        print(key, ' : ', value)
+    
 
 if __name__ == '__main__':
     cli_main()
