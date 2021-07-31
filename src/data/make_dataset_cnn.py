@@ -39,6 +39,8 @@ def processData(file, output_path):
     # dictionary of lists to save window transforms
     dictlist = {}
 
+    sig_window=sig_window[:100]
+
     # loop over all window_IDs
     for x in tqdm(sig_window, bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}'):
         # list of dataframes to store results
@@ -61,6 +63,7 @@ def processData(file, output_path):
         cstack = torch.stack(listSxx)
         # add stacked channels to the dictionary with window_ID as key
         dictlist[str(x['window_ID'].iloc[0])] = cstack
+        pass
     
     # save processed data to appropriate path  
     dump_file = os.path.join(output_path, fname+".pkl")

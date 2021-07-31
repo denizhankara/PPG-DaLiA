@@ -167,13 +167,15 @@ def cli_main():
     os.environ["PYTHONHASHSEED"] = str(seed)
 
     # Get all the processed data in interim folder
-    data_path = "./data/"
+    #data_path = "./data/"
+    data_path= "../../data/interim/PPG_FieldStudy_CNN_Input"
     # find all files in folder
     files = [f.path for f in os.scandir(data_path) if f.is_file()]
     # sort in order by subject (numerical part)
     files.sort(key=lambda f: int(re.sub('\D', '', f)))
     # Get all the labels data in interim folder
-    labels_path = "./labels"
+    #labels_path = "./labels"
+    labels_path = "../../data/interim/PPG_FieldStudy_Windowed_Activity_Recognition"
     labels = [f.path for f in os.scandir(labels_path) if f.is_file() and 'labels' in PurePath(f).name]
     # sort in order by subject (numerical part)
     labels.sort(key=lambda f: int(re.sub('\D', '', f)))
