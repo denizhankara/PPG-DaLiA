@@ -42,12 +42,14 @@ class CustomDataset(Dataset):
         """
         if torch.is_tensor(index):
             index = index.tolist()       
-        x = self.x['Data'][index] #self.x[index]
+        x_fft = self.x['Data'][index] #self.x[index]
+        x_cwt = self.x['Data_cwt'][index]  # self.x[index]
+
         y = self.y[index]
         activity = torch.tensor(self.x['predicted_activity'][index],dtype=torch.float32)
         # convert labels to tensor
         y = torch.tensor(y, dtype=torch.float32)
-        return x, y ,activity
+        return x_fft,x_cwt ,activity, y
 
 
 
@@ -74,31 +76,60 @@ class HeartbeatCNN(nn.Module):
         self.conv10 = nn.Conv2d(2048, 32, (1, 1), stride=(1, 1))
         self.pool = nn.MaxPool2d((1, 2), (1, 2))
         self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(193, 64)
-        self.fc2 = nn.Linear(64, 1)
+        #self.fc1 = nn.Linear(193, 64)
+        #self.fc2 = nn.Linear(64, 1)
+        self.fc1 = nn.Linear(433, 192)
+        self.fc2 = nn.Linear(192, 64)
+        self.fc3 = nn.Linear(64, 1)
+
         self.dropout = nn.Dropout(p=0.5)
 
-    def forward(self, x, activity):
-        x = F.elu(self.conv1(x))
-        x = F.elu(self.conv2(x))
-        x = self.pool(F.elu(self.conv3(x)))
-        x = self.pool(F.elu(self.conv4(x)))
-        x = self.pool(F.elu(self.conv5(x)))
-        x = self.pool(F.elu(self.conv6(x)))
-        x = self.pool(F.elu(self.conv7(x)))
-        x = self.pool(F.elu(self.conv8(x)))
-        x = self.pool(F.elu(self.conv9(x)))
-        x = F.elu(self.conv10(x))
-        x = self.flatten(x)
+    def forward(self, x_fft,x_cwt, activity):
 
+        # convolve fft
+        x_fft = F.elu(self.conv1(x_fft))
+        x_fft = F.elu(self.conv2(x_fft))
+        x_fft = self.pool(F.elu(self.conv3(x_fft)))
+        x_fft = self.pool(F.elu(self.conv4(x_fft)))
+        x_fft = self.pool(F.elu(self.conv5(x_fft)))
+        x_fft = self.pool(F.elu(self.conv6(x_fft)))
+        x_fft = self.pool(F.elu(self.conv7(x_fft)))
+        x_fft = self.pool(F.elu(self.conv8(x_fft)))
+        x_fft = self.pool(F.elu(self.conv9(x_fft)))
+        x_fft = F.elu(self.conv10(x_fft))
+        x_fft = self.flatten(x_fft)
+
+        # convolve cwt
+
+
+        # or flatten it directly
+        x_cwt = self.flatten(x_cwt)
+
+
+
+        activity = activity.resize_((activity.shape[0], 1))
+        x = torch.cat((x_fft,x_cwt,activity),dim=1)
+
+        x = F.elu(self.fc1(x))
+        x = self.dropout(x)
+        x = F.elu(self.fc2(x))
+        x = self.dropout(x)
+        x = self.fc3(x)
+
+
+        return x
+
+        """
         activity = activity.resize_((activity.shape[0], 1))
 
         x = torch.cat((x,activity),dim=1)
         x = F.elu(self.fc1(x))
         x = self.dropout(x)
         x = self.fc2(x)
-
+        
         return x
+
+        """
 
 
 
@@ -108,10 +139,10 @@ def train_model(model, train_loader, n_epoch = None, optimizer=None, criterion=N
 
     for epoch in range(n_epoch):
         curr_epoch_loss = []
-        for data, target,activity in tqdm(train_loader, bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}'):
+        for data_fft,data_cwt,activity,target in tqdm(train_loader, bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}'):
 
-            data, target = data.to(device), target.to(device)
-            outputs = model.forward(data,activity)
+            data_fft, data_cwt, target = data_fft.to(device), data_cwt.to(device), target.to(device)
+            outputs = model.forward(data_fft,data_cwt,activity)
             outputs = outputs.view(outputs.size(0))
 
             loss = criterion(outputs, target)
@@ -133,12 +164,14 @@ def eval_model(model, val_loader):
     Y_pred = []
     Y_true = []
 
-    for data, target, activity in tqdm(val_loader, bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}'):
-        
-        data, target = data.to(device), target.to(device)
+    for data_fft,data_cwt,activity,target in tqdm(val_loader, bar_format='{l_bar}{bar:20}{r_bar}{bar:-20b}'):
+
+        data_fft, data_cwt, target = data_fft.to(device), data_cwt.to(device), target.to(device)
+        #data, target = data.to(device), target.to(device)
         
         # run the inputs through the model
-        outputs = model.forward(data,activity)
+        #outputs = model.forward(data,activity)
+        outputs = model.forward(data_fft, data_cwt, activity)
 
         # get predicted and target values
         pred_value = outputs.detach().cpu().numpy()
@@ -203,24 +236,41 @@ def cli_main():
     mae_list = {}
 
     # iterate over all subjects
-    for f, l in zip(files, labels):
+    #for f, l in zip(files, labels):
+    for l in labels:
+
         # current subject to process
-        current_subject = os.path.splitext(os.path.basename(f))[0]
-        
+        #current_subject = os.path.splitext(os.path.basename(f))[0]
+        current_subject = os.path.splitext(os.path.basename(l))[0].split('_')[0]
+
+        #if not current_subject=='S6':
+        #    continue
+
+        f_fft = os.path.join(data_path,current_subject+".pkl")
+        f_cwt=  os.path.join(data_path,current_subject + "_cwt.pkl")
+
         # read pickle for subject
-        x_pkl = pd.read_pickle(f)
+        x_pkl = pd.read_pickle(f_fft)
 
         # create dataframe
         xdf = pd.DataFrame(list(x_pkl.items()),columns = ['window_ID','Data'])
+
+
+        # read the pickle for subject cwt
+        x_pkl_cwt=torch.load(f_cwt)
+
+        # create dataframe
+        xdf_cwt = pd.DataFrame(list(x_pkl_cwt.items()), columns=['window_ID', 'Data_cwt'])
 
         # read lables for subject
         ydf = pd.read_csv(l)
 
         # merge data and labels
+        xdf=pd.merge(xdf,xdf_cwt,on='window_ID')
         data_subject = pd.merge(xdf, ydf, on="window_ID")
 
         # create custom dataset
-        dataset = CustomDataset(data_subject[['Data','predicted_activity']],data_subject['Label'])
+        dataset = CustomDataset(data_subject[['Data','Data_cwt','predicted_activity']],data_subject['Label'])
 
         # split dataset to train and test data
         train_size = int(0.8 * len(dataset))
